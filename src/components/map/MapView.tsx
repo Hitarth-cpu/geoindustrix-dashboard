@@ -1,15 +1,47 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { industrialLandData } from '@/services/industryData';
+import { useLocation } from 'react-router-dom';
+import { useToast } from '@/components/ui/use-toast';
+import { MapPin } from 'lucide-react';
 
 const MapView = () => {
   const [mapboxToken, setMapboxToken] = useState('');
   const [showTokenInput, setShowTokenInput] = useState(true);
+  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const location = useLocation();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Parse location data from URL query params
+    const queryParams = new URLSearchParams(location.search);
+    const locationParam = queryParams.get('location');
+    
+    if (locationParam) {
+      try {
+        const parsedLocation = JSON.parse(decodeURIComponent(locationParam));
+        setSelectedLocation(parsedLocation);
+        console.log("Selected location:", parsedLocation);
+      } catch (error) {
+        console.error("Error parsing location data:", error);
+        toast({
+          title: "Error",
+          description: "Could not load location data",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [location.search, toast]);
 
   const handleSubmitToken = (e: React.FormEvent) => {
     e.preventDefault();
     setShowTokenInput(false);
+    
+    toast({
+      title: "Mapbox token saved",
+      description: "Map is now being initialized",
+    });
   };
 
   return (
@@ -63,22 +95,53 @@ const MapView = () => {
           </svg>
           
           {/* Plot industrial locations */}
-          {industrialLandData.map((location, index) => (
-            <div
-              key={index}
-              className="absolute w-4 h-4 rounded-full bg-geo-blue transform -translate-x-1/2 -translate-y-1/2"
-              style={{
-                left: `${200 + (index * 50) % 300}px`,
-                top: `${150 + (index * 40) % 250}px`,
-                zIndex: 10,
-              }}
-            >
-              <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-white px-2 py-1 rounded shadow text-xs whitespace-nowrap">
-                {location.talukaName}, {location.state}
+          {industrialLandData.map((location, index) => {
+            const isSelected = selectedLocation && 
+              location.talukaName === selectedLocation.talukaName && 
+              location.state === selectedLocation.state;
+              
+            return (
+              <div
+                key={index}
+                className={`absolute w-4 h-4 rounded-full ${isSelected ? 'bg-purple-600 animate-pulse' : 'bg-geo-blue'} transform -translate-x-1/2 -translate-y-1/2`}
+                style={{
+                  left: `${200 + (index * 50) % 300}px`,
+                  top: `${150 + (index * 40) % 250}px`,
+                  zIndex: 10,
+                  scale: isSelected ? '1.5' : '1',
+                  boxShadow: isSelected ? '0 0 10px rgba(147, 51, 234, 0.7)' : 'none'
+                }}
+              >
+                {isSelected && (
+                  <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded shadow text-sm whitespace-nowrap z-20 font-medium flex items-center">
+                    <MapPin className="h-3 w-3 text-purple-600 mr-1" />
+                    {location.talukaName}, {location.state}
+                  </div>
+                )}
+                <div className={`absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-white px-2 py-1 rounded shadow text-xs whitespace-nowrap ${isSelected ? 'hidden' : ''}`}>
+                  {location.talukaName}, {location.state}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+        
+        {/* Selected location info panel */}
+        {selectedLocation && (
+          <div className="absolute top-4 left-4 bg-white p-4 rounded-md shadow-md max-w-xs">
+            <h3 className="font-medium text-lg border-b pb-2 mb-3 flex items-center">
+              <MapPin className="h-4 w-4 text-purple-600 mr-2" />
+              {selectedLocation.talukaName}, {selectedLocation.district}
+            </h3>
+            <div className="space-y-2 text-sm">
+              <p><span className="font-medium">State:</span> {selectedLocation.state}</p>
+              <p><span className="font-medium">Land Price:</span> ₹{selectedLocation.landPrice}/sqm</p>
+              <p><span className="font-medium">Labor Availability:</span> {selectedLocation.laborAvail}</p>
+              <p><span className="font-medium">Infrastructure:</span> {selectedLocation.infraIndex}/10</p>
+              <p><span className="font-medium">Incentives:</span> {selectedLocation.govtIncentives}</p>
+            </div>
+          </div>
+        )}
         
         {/* Controls overlay */}
         <div className="absolute top-4 right-4 bg-white p-2 rounded-md shadow-md">
@@ -94,6 +157,10 @@ const MapView = () => {
             <div className="flex items-center">
               <div className="w-3 h-3 rounded-full bg-geo-blue mr-1"></div>
               <span>Industrial Zones</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 rounded-full bg-purple-600 mr-1"></div>
+              <span>Selected Location</span>
             </div>
             <div className="flex items-center">
               <div className="w-3 h-3 rounded-full bg-geo-teal mr-1"></div>

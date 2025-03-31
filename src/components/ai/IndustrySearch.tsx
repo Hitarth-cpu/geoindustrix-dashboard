@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Search, MapPin, Navigation, Building } from 'lucide-react';
 import { topIndustryTypes, getLocationsByIndustryType } from '@/services/industryData';
 import { useToast } from '@/components/ui/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 const IndustrySearch = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSearch = () => {
     if (!searchQuery.trim()) {
@@ -46,6 +48,16 @@ const IndustrySearch = () => {
       
       setIsSearching(false);
     }, 1500);
+  };
+
+  const handleResultClick = (location: any) => {
+    // Navigate to the map view with location data
+    navigate(`/map?location=${encodeURIComponent(JSON.stringify(location))}`);
+    
+    toast({
+      title: "Navigating to location",
+      description: `Showing ${location.talukaName}, ${location.state} on map`,
+    });
   };
 
   return (
@@ -104,7 +116,11 @@ const IndustrySearch = () => {
               </div>
               <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
                 {searchResults.map((result, index) => (
-                  <Card key={index} className="p-3 hover:bg-purple-50 transition-colors">
+                  <Card 
+                    key={index} 
+                    className="p-3 hover:bg-purple-50 transition-colors cursor-pointer"
+                    onClick={() => handleResultClick(result)}
+                  >
                     <div className="flex justify-between">
                       <div>
                         <div className="flex items-center gap-1">
