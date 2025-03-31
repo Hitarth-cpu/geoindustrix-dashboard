@@ -1,7 +1,12 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Provider } from 'react-redux';
+import { addDataToMap } from 'kepler.gl/actions';
+import KeplerGl from 'kepler.gl';
+import store from '@/store/store';
 import { industrialLandData } from '@/services/industryData';
+import { Card, CardContent } from '@/components/ui/card';
+import 'kepler.gl/dist/mapbox-css';
 
 const MapView = () => {
   const [mapboxToken, setMapboxToken] = useState('');
@@ -9,6 +14,51 @@ const MapView = () => {
 
   const handleSubmitToken = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Convert industrial land data to GeoJSON format
+    const features = industrialLandData.map((location, index) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [
+          // These are placeholder coordinates. In a real app, you'd use actual coordinates
+          78 + (Math.random() * 10 - 5), // longitude (roughly India)
+          22 + (Math.random() * 8 - 4),  // latitude (roughly India)
+        ]
+      },
+      properties: {
+        id: index,
+        name: location.talukaName,
+        state: location.state,
+        industry: location.industry,
+        landPrice: location.landPrice,
+        laborAvailability: location.laborAvailability,
+        infrastructureIndex: location.infrastructureIndex,
+      }
+    }));
+
+    const geojsonData = {
+      type: 'FeatureCollection',
+      features
+    };
+
+    // Dispatch action to add data to the map
+    store.dispatch(
+      addDataToMap({
+        datasets: [{
+          info: {
+            label: 'Industrial Land Data',
+            id: 'industrial_data'
+          },
+          data: geojsonData
+        }],
+        options: {
+          centerMap: true,
+        },
+        config: {}
+      })
+    );
+    
     setShowTokenInput(false);
   };
 
@@ -41,71 +91,16 @@ const MapView = () => {
             </CardContent>
           </Card>
         </div>
-      ) : null}
-
-      <div className="h-full w-full bg-slate-200 relative overflow-hidden rounded-lg">
-        {/* Mock map with India outline */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <svg
-            width="600"
-            height="500"
-            viewBox="0 0 600 500"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-full h-full"
-          >
-            <path
-              d="M400,100 Q450,150 430,200 Q420,250 450,300 Q470,350 450,400 Q400,420 350,400 Q300,410 250,400 Q200,420 150,400 Q130,350 150,300 Q170,250 150,200 Q130,150 180,100 Q230,80 300,100 Q350,80 400,100 Z"
-              fill="#e2e8f0"
-              stroke="#64748b"
-              strokeWidth="2"
-            />
-          </svg>
-          
-          {/* Plot industrial locations */}
-          {industrialLandData.map((location, index) => (
-            <div
-              key={index}
-              className="absolute w-4 h-4 rounded-full bg-geo-blue transform -translate-x-1/2 -translate-y-1/2"
-              style={{
-                left: `${200 + (index * 50) % 300}px`,
-                top: `${150 + (index * 40) % 250}px`,
-                zIndex: 10,
-              }}
-            >
-              <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-white px-2 py-1 rounded shadow text-xs whitespace-nowrap">
-                {location.talukaName}, {location.state}
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        {/* Controls overlay */}
-        <div className="absolute top-4 right-4 bg-white p-2 rounded-md shadow-md">
-          <div className="flex flex-col space-y-2">
-            <button className="p-1 hover:bg-slate-100 rounded">+</button>
-            <button className="p-1 hover:bg-slate-100 rounded">−</button>
-          </div>
-        </div>
-        
-        <div className="absolute bottom-4 left-4 right-4 bg-white p-3 rounded-md shadow-md">
-          <p className="text-sm font-medium mb-1">Map Legend</p>
-          <div className="flex items-center space-x-4 text-xs">
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-geo-blue mr-1"></div>
-              <span>Industrial Zones</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-geo-teal mr-1"></div>
-              <span>Urban Centers</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-geo-purple mr-1"></div>
-              <span>SEZ</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      ) : (
+        <Provider store={store}>
+          <KeplerGl
+            id="map"
+            mapboxApiAccessToken={mapboxToken}
+            width="100%"
+            height="100%"
+          />
+        </Provider>
+      )}
     </div>
   );
 };
