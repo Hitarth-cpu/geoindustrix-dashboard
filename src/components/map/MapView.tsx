@@ -6,7 +6,8 @@ import KeplerGl from 'kepler.gl';
 import store from '@/store/store';
 import { industrialLandData } from '@/services/industryData';
 import { Card, CardContent } from '@/components/ui/card';
-import 'kepler.gl/dist/mapbox-css';
+
+// Note: Removed problematic import 'kepler.gl/dist/mapbox-css'
 
 const MapView = () => {
   const [mapboxToken, setMapboxToken] = useState('');
@@ -30,10 +31,11 @@ const MapView = () => {
         id: index,
         name: location.talukaName,
         state: location.state,
-        industry: location.industry,
+        // Fixed property access to match the actual data structure
+        industrySuitability: location.industrySuitability.join(', '),
         landPrice: location.landPrice,
-        laborAvailability: location.laborAvailability,
-        infrastructureIndex: location.infrastructureIndex,
+        laborAvail: location.laborAvail,
+        infraIndex: location.infraIndex
       }
     }));
 
