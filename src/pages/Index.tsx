@@ -16,10 +16,15 @@ const Index = () => {
       
       <main className="container py-6">
         <div className="flex flex-col gap-2 mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">GeoIndustrix Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Place Pro Dashboard</h1>
           <p className="text-muted-foreground">
             Industrial location intelligence and analytics platform
           </p>
+        </div>
+        
+        {/* Make Industry Search the focal point */}
+        <div className="grid grid-cols-1 mb-8">
+          <IndustrySearch />
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -59,7 +64,6 @@ const Index = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <CountrySalesTable />
-          <IndustrySearch />
         </div>
         
         <div className="grid grid-cols-1 gap-6">

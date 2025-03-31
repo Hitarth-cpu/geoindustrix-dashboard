@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LayoutDashboard, Map, Filter, Search } from 'lucide-react';
 
@@ -13,7 +12,7 @@ export const Navbar = () => {
       <div className="flex h-16 items-center px-4 md:px-6">
         <div className="mr-4 flex">
           <Link to="/" className="flex items-center">
-            <div className="rounded-md bg-geo-blue p-1 text-white">
+            <div className="rounded-md bg-purple-600 p-1 text-white">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
@@ -27,7 +26,7 @@ export const Navbar = () => {
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
               </svg>
             </div>
-            <span className="ml-2 text-xl font-semibold">GeoIndustrix PRO</span>
+            <span className="ml-2 text-xl font-semibold">Place Pro</span>
           </Link>
         </div>
         
@@ -78,9 +77,6 @@ export const Navbar = () => {
               className="w-[200px] lg:w-[256px] pl-8"
             />
           </div>
-          <Button variant="outline" size="sm">
-            Sign In
-          </Button>
         </div>
       </div>
     </div>
