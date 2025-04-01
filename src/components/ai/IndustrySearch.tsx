@@ -3,92 +3,19 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, MapPin, Navigation, Building, Compass } from 'lucide-react';
+import { Search, MapPin, Navigation, Building } from 'lucide-react';
 import { topIndustryTypes, getLocationsByIndustryType } from '@/services/industryData';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
-
-interface PlaceResult {
-  placeId: string;
-  displayName: {
-    text: string;
-    languageCode: string;
-  };
-  formattedAddress: string;
-  location?: {
-    latitude: number;
-    longitude: number;
-  };
-}
 
 const IndustrySearch = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [placesResults, setPlacesResults] = useState<PlaceResult[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const searchGooglePlaces = async (query: string) => {
-    if (!query.trim()) return;
-    
-    const data = JSON.stringify({
-      input: query,
-      locationBias: {
-        circle: {
-          center: {
-            latitude: 20.5937, // India center-ish
-            longitude: 78.9629
-          },
-          radius: 5000000 // Larger radius to cover more area
-        }
-      },
-      includedPrimaryTypes: [],
-      includedRegionCodes: [],
-      languageCode: '',
-      regionCode: '',
-      origin: {
-        latitude: 0,
-        longitude: 0
-      },
-      inputOffset: 0,
-      includeQueryPredictions: true,
-      sessionToken: ''
-    });
-
-    try {
-      const response = await fetch('https://google-map-places-new-v2.p.rapidapi.com/v1/places:autocomplete', {
-        method: 'POST',
-        headers: {
-          'x-rapidapi-key': 'e1f3594254msh88c163771928641p128bf0jsn1cd581689d65',
-          'x-rapidapi-host': 'google-map-places-new-v2.p.rapidapi.com',
-          'Content-Type': 'application/json',
-          'X-Goog-FieldMask': '*'
-        },
-        body: data
-      });
-      
-      const result = await response.json();
-      console.log('Google Places API response:', result);
-      
-      if (result.places && result.places.length > 0) {
-        setPlacesResults(result.places);
-        return result.places;
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('Error fetching Google Places data:', error);
-      toast({
-        title: "API Error",
-        description: "Could not fetch location data from Google Places",
-        variant: "destructive",
-      });
-      return [];
-    }
-  };
-
-  const handleSearch = async () => {
+  const handleSearch = () => {
     if (!searchQuery.trim()) {
       toast({
         title: "Search query is empty",
@@ -100,28 +27,12 @@ const IndustrySearch = () => {
 
     setIsSearching(true);
     
-    try {
-      // First search Google Places API
-      const placesData = await searchGooglePlaces(searchQuery);
+    // Simulate AI processing
+    setTimeout(() => {
+      // Get results from our mock data service
+      const results = getLocationsByIndustryType(searchQuery);
       
-      // Then get results from our mock data service
-      const industryResults = getLocationsByIndustryType(searchQuery);
-      
-      // Combine the results - in a real app, you might want to merge them more intelligently
-      const combinedResults = industryResults.map((result, index) => {
-        // If we have Places data, use some of the info to enhance our results
-        if (placesData && placesData[index]) {
-          return {
-            ...result,
-            placeId: placesData[index].placeId,
-            formattedAddress: placesData[index].formattedAddress || result.talukaName,
-            googleLocation: placesData[index].location || null
-          };
-        }
-        return result;
-      });
-      
-      if (combinedResults.length === 0) {
+      if (results.length === 0) {
         toast({
           title: "No results found",
           description: `No locations found for industry type: ${searchQuery}`,
@@ -130,24 +41,17 @@ const IndustrySearch = () => {
       } else {
         toast({
           title: "Search completed",
-          description: `Found ${combinedResults.length} locations for ${searchQuery} industry`,
+          description: `Found ${results.length} locations for ${searchQuery} industry`,
         });
-        setSearchResults(combinedResults);
+        setSearchResults(results);
       }
-    } catch (error) {
-      console.error("Search error:", error);
-      toast({
-        title: "Search error",
-        description: "An error occurred while searching",
-        variant: "destructive",
-      });
-    } finally {
+      
       setIsSearching(false);
-    }
+    }, 1500);
   };
 
   const handleResultClick = (location: any) => {
-    // Navigate to the map view with enhanced location data
+    // Navigate to the map view with location data
     navigate(`/map?location=${encodeURIComponent(JSON.stringify(location))}`);
     
     toast({
@@ -159,8 +63,8 @@ const IndustrySearch = () => {
   return (
     <Card className="shadow-lg border-2 border-purple-100 overflow-hidden">
       <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50 pb-4">
-        <CardTitle className="text-3xl flex items-center gap-2">
-          <MapPin className="h-7 w-7 text-purple-600" />
+        <CardTitle className="text-2xl flex items-center gap-2">
+          <MapPin className="h-6 w-6 text-purple-600" />
           Industry Location Search
         </CardTitle>
         <CardDescription className="text-base">
@@ -221,9 +125,7 @@ const IndustrySearch = () => {
                       <div>
                         <div className="flex items-center gap-1">
                           <Navigation className="h-3 w-3 text-purple-600" />
-                          <p className="font-medium">
-                            {result.formattedAddress || `${result.talukaName}, ${result.district}`}
-                          </p>
+                          <p className="font-medium">{result.talukaName}, {result.district}</p>
                         </div>
                         <p className="text-sm text-muted-foreground">{result.state}</p>
                       </div>
@@ -235,12 +137,6 @@ const IndustrySearch = () => {
                     <div className="mt-2">
                       <p className="text-xs">Infrastructure: {result.infraIndex}/10</p>
                       <p className="text-xs">Incentives: {result.govtIncentives}</p>
-                      {result.googleLocation && (
-                        <div className="mt-1 flex items-center text-xs text-purple-600">
-                          <Compass className="h-3 w-3 mr-1" />
-                          <span>Click to view on map</span>
-                        </div>
-                      )}
                     </div>
                   </Card>
                 ))}
