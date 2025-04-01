@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, MapPin, Navigation, Building } from 'lucide-react';
+import { Search, MapPin, Navigation, Building, Compass } from 'lucide-react';
 import { topIndustryTypes, getLocationsByIndustryType } from '@/services/industryData';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -159,8 +159,8 @@ const IndustrySearch = () => {
   return (
     <Card className="shadow-lg border-2 border-purple-100 overflow-hidden">
       <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50 pb-4">
-        <CardTitle className="text-2xl flex items-center gap-2">
-          <MapPin className="h-6 w-6 text-purple-600" />
+        <CardTitle className="text-3xl flex items-center gap-2">
+          <MapPin className="h-7 w-7 text-purple-600" />
           Industry Location Search
         </CardTitle>
         <CardDescription className="text-base">
@@ -235,6 +235,12 @@ const IndustrySearch = () => {
                     <div className="mt-2">
                       <p className="text-xs">Infrastructure: {result.infraIndex}/10</p>
                       <p className="text-xs">Incentives: {result.govtIncentives}</p>
+                      {result.googleLocation && (
+                        <div className="mt-1 flex items-center text-xs text-purple-600">
+                          <Compass className="h-3 w-3 mr-1" />
+                          <span>Click to view on map</span>
+                        </div>
+                      )}
                     </div>
                   </Card>
                 ))}
