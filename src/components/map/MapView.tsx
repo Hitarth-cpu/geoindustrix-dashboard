@@ -1,20 +1,22 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { industrialLandData } from '@/services/industryData';
 import { useLocation } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import { MapPin, Layers, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 const MapView = () => {
-  const [mapboxToken, setMapboxToken] = useState('');
-  const [showTokenDialog, setShowTokenDialog] = useState(true);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<maplibregl.Map | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [mapLayer, setMapLayer] = useState('standard'); // 'standard', 'satellite', 'terrain'
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [initializedMap, setInitializedMap] = useState(false);
   const location = useLocation();
   const { toast } = useToast();
 
@@ -39,81 +41,332 @@ const MapView = () => {
     }
   }, [location.search, toast]);
 
-  const handleSubmitToken = () => {
-    if (mapboxToken.trim()) {
-      setShowTokenDialog(false);
+  useEffect(() => {
+    // Initialize map if container is available
+    if (!mapContainer.current || initializedMap) return;
+
+    // Initialize the MapLibre map
+    map.current = new maplibregl.Map({
+      container: mapContainer.current,
+      style: {
+        version: 8,
+        sources: {
+          'osm': {
+            type: 'raster',
+            tiles: [
+              'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+            ],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors'
+          }
+        },
+        layers: [
+          {
+            id: 'osm-tiles',
+            type: 'raster',
+            source: 'osm',
+            minzoom: 0,
+            maxzoom: 19
+          }
+        ]
+      },
+      center: [78.9629, 20.5937], // Center on India
+      zoom: 4
+    });
+
+    // Add navigation controls
+    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    // Map is ready
+    map.current.on('load', () => {
+      setInitializedMap(true);
+      toast({
+        title: "Map initialized",
+        description: "Using OpenStreetMap with MapLibre GL",
+      });
       
-      toast({
-        title: "Mapbox token saved",
-        description: "Map is now being initialized",
-      });
-    } else {
-      toast({
-        title: "Token Required",
-        description: "Please enter a valid Mapbox token",
-        variant: "destructive",
-      });
-    }
-  };
+      // Add markers for industrial locations
+      addLocationMarkers();
+    });
 
-  // Function to determine marker position based on coordinates or index
-  const getMarkerPosition = (location: any, index: number) => {
-    if (location?.coordinates?.lat && location?.coordinates?.lng) {
-      // Use real coordinates if available
-      return {
-        left: `${(location.coordinates.lng - 70) * 100}px`,
-        top: `${(location.coordinates.lat - 15) * 100}px`,
-      };
-    } else {
-      // Fallback to index-based positioning
-      return {
-        left: `${200 + (index * 50) % 300}px`,
-        top: `${150 + (index * 40) % 250}px`,
-      };
-    }
-  };
+    // Cleanup
+    return () => {
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+    };
+  }, [mapContainer.current]);
 
-  const getMarkerColor = (infraIndex: number) => {
-    if (infraIndex >= 8) return '#22c55e'; // green
-    if (infraIndex >= 6) return '#eab308'; // yellow
-    return '#ef4444'; // red
+  // Add effect to update map style when mapLayer changes
+  useEffect(() => {
+    if (!map.current || !initializedMap) return;
+    
+    // Change the map style based on the selected layer
+    switch (mapLayer) {
+      case 'satellite':
+        map.current.setStyle({
+          version: 8,
+          sources: {
+            'satellite': {
+              type: 'raster',
+              tiles: [
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+              ],
+              tileSize: 256,
+              attribution: 'Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            }
+          },
+          layers: [
+            {
+              id: 'satellite-tiles',
+              type: 'raster',
+              source: 'satellite',
+              minzoom: 0,
+              maxzoom: 19
+            }
+          ]
+        });
+        break;
+      case 'terrain':
+        map.current.setStyle({
+          version: 8,
+          sources: {
+            'terrain': {
+              type: 'raster',
+              tiles: [
+                'https://tile.opentopomap.org/{z}/{x}/{y}.png'
+              ],
+              tileSize: 256,
+              attribution: 'Map data: © OpenStreetMap contributors, SRTM | Map style: © OpenTopoMap (CC-BY-SA)'
+            }
+          },
+          layers: [
+            {
+              id: 'terrain-tiles',
+              type: 'raster',
+              source: 'terrain',
+              minzoom: 0,
+              maxzoom: 17
+            }
+          ]
+        });
+        break;
+      default: // standard
+        map.current.setStyle({
+          version: 8,
+          sources: {
+            'osm': {
+              type: 'raster',
+              tiles: [
+                'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+              ],
+              tileSize: 256,
+              attribution: '© OpenStreetMap contributors'
+            }
+          },
+          layers: [
+            {
+              id: 'osm-tiles',
+              type: 'raster',
+              source: 'osm',
+              minzoom: 0,
+              maxzoom: 19
+            }
+          ]
+        });
+    }
+    
+    // Re-add markers after style change
+    map.current.once('style.load', () => {
+      addLocationMarkers();
+    });
+  }, [mapLayer, initializedMap]);
+
+  // Add effect to show/hide heatmap
+  useEffect(() => {
+    if (!map.current || !initializedMap) return;
+
+    // Toggle heatmap layer
+    if (showHeatmap) {
+      // Create heatmap data
+      const heatmapData = {
+        type: 'FeatureCollection',
+        features: industrialLandData.map(location => ({
+          type: 'Feature',
+          properties: {
+            intensity: location.infraIndex / 10 // Normalize to 0-1
+          },
+          geometry: {
+            type: 'Point',
+            coordinates: [
+              location.coordinates?.lng || 78 + Math.random() * 5, 
+              location.coordinates?.lat || 20 + Math.random() * 5
+            ]
+          }
+        }))
+      };
+
+      // Add heatmap source and layer
+      if (!map.current.getSource('heatmap-data')) {
+        map.current.addSource('heatmap-data', {
+          type: 'geojson',
+          data: heatmapData as any
+        });
+      } else {
+        (map.current.getSource('heatmap-data') as maplibregl.GeoJSONSource).setData(heatmapData as any);
+      }
+
+      // Add heatmap layer if it doesn't exist
+      if (!map.current.getLayer('heatmap-layer')) {
+        map.current.addLayer({
+          id: 'heatmap-layer',
+          type: 'heatmap',
+          source: 'heatmap-data',
+          paint: {
+            'heatmap-weight': ['get', 'intensity'],
+            'heatmap-intensity': 0.5,
+            'heatmap-color': [
+              'interpolate',
+              ['linear'],
+              ['heatmap-density'],
+              0, 'rgba(0, 0, 255, 0)',
+              0.2, 'rgba(0, 0, 255, 0.5)',
+              0.4, 'rgba(0, 255, 255, 0.5)',
+              0.6, 'rgba(0, 255, 0, 0.5)',
+              0.8, 'rgba(255, 255, 0, 0.5)',
+              1, 'rgba(255, 0, 0, 0.5)'
+            ],
+            'heatmap-radius': 30,
+            'heatmap-opacity': 0.8
+          }
+        });
+      } else {
+        map.current.setLayoutProperty('heatmap-layer', 'visibility', 'visible');
+      }
+    } else {
+      // Hide heatmap if exists
+      if (map.current.getLayer('heatmap-layer')) {
+        map.current.setLayoutProperty('heatmap-layer', 'visibility', 'none');
+      }
+    }
+  }, [showHeatmap, initializedMap]);
+
+  // Focus on selected location
+  useEffect(() => {
+    if (!map.current || !initializedMap || !selectedLocation || !selectedLocation.coordinates) return;
+    
+    // Fly to selected location
+    map.current.flyTo({
+      center: [selectedLocation.coordinates.lng, selectedLocation.coordinates.lat],
+      zoom: 10,
+      essential: true,
+      duration: 2000
+    });
+    
+    // Add or update a special marker for the selected location
+    const markerElement = document.createElement('div');
+    markerElement.className = 'selected-marker';
+    markerElement.style.width = '20px';
+    markerElement.style.height = '20px';
+    markerElement.style.borderRadius = '50%';
+    markerElement.style.backgroundColor = '#9333ea'; // Purple
+    markerElement.style.border = '2px solid white';
+    markerElement.style.boxShadow = '0 0 10px rgba(147, 51, 234, 0.7)';
+    
+    // Remove existing selected marker if any
+    document.querySelectorAll('.selected-marker-container').forEach(el => el.remove());
+    
+    const markerContainer = document.createElement('div');
+    markerContainer.className = 'selected-marker-container';
+    markerContainer.appendChild(markerElement);
+    
+    new maplibregl.Marker(markerContainer)
+      .setLngLat([selectedLocation.coordinates.lng, selectedLocation.coordinates.lat])
+      .addTo(map.current);
+      
+    // Add popup with info
+    new maplibregl.Popup({
+      offset: 25,
+      closeButton: false,
+      closeOnClick: false
+    })
+      .setLngLat([selectedLocation.coordinates.lng, selectedLocation.coordinates.lat])
+      .setHTML(`
+        <strong>${selectedLocation.talukaName}, ${selectedLocation.district || ''}</strong>
+        <p>State: ${selectedLocation.state}</p>
+        <p>Score: ${selectedLocation.suitabilityScore || 'N/A'}/10</p>
+      `)
+      .addTo(map.current);
+      
+  }, [selectedLocation, initializedMap]);
+
+  const addLocationMarkers = () => {
+    if (!map.current) return;
+    
+    // Remove existing markers
+    document.querySelectorAll('.location-marker-container').forEach(el => el.remove());
+    
+    // Add markers for all industrial locations
+    industrialLandData.forEach(location => {
+      // Skip if no coordinates
+      if (!location.coordinates && !location.coordinates?.lat && !location.coordinates?.lng) return;
+      
+      // Create marker element
+      const markerElement = document.createElement('div');
+      markerElement.className = 'location-marker';
+      markerElement.style.width = '10px';
+      markerElement.style.height = '10px';
+      markerElement.style.borderRadius = '50%';
+      markerElement.style.backgroundColor = '#3b82f6'; // Blue
+      markerElement.style.border = '2px solid white';
+      
+      // Create container
+      const markerContainer = document.createElement('div');
+      markerContainer.className = 'location-marker-container';
+      markerContainer.appendChild(markerElement);
+      
+      // Add marker to map
+      const markerObj = new maplibregl.Marker(markerContainer)
+        .setLngLat([
+          location.coordinates?.lng || 78 + Math.random() * 5, 
+          location.coordinates?.lat || 20 + Math.random() * 5
+        ])
+        .addTo(map.current!);
+        
+      // Add popup on hover
+      const popup = new maplibregl.Popup({
+        offset: 15,
+        closeButton: false,
+        closeOnClick: false
+      }).setHTML(`
+        <strong>${location.talukaName}</strong>
+        <p>${location.district}, ${location.state}</p>
+      `);
+      
+      markerContainer.addEventListener('mouseenter', () => {
+        markerObj.setPopup(popup);
+        popup.addTo(map.current!);
+      });
+      
+      markerContainer.addEventListener('mouseleave', () => {
+        popup.remove();
+      });
+      
+      // Click event to select location
+      markerContainer.addEventListener('click', () => {
+        setSelectedLocation(location);
+      });
+    });
   };
 
   return (
     <div className="h-[calc(100vh-5rem)] relative">
-      <Dialog open={showTokenDialog} onOpenChange={setShowTokenDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enter Mapbox Token</DialogTitle>
-            <DialogDescription>
-              Please enter your Mapbox public token to view the map. You can find this in your Mapbox account dashboard.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4 space-y-4">
-            <Input
-              type="text"
-              value={mapboxToken}
-              onChange={(e) => setMapboxToken(e.target.value)}
-              placeholder="pk.eyJ1Ijoi..."
-              className="w-full"
-              required
-            />
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowTokenDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmitToken}>
-                Submit
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              This token will only be stored in your browser's memory. Get your token at <a href="https://mapbox.com" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">mapbox.com</a>
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="h-full w-full bg-slate-200 relative overflow-hidden rounded-lg">
+      <div className="h-full w-full bg-slate-200 relative overflow-hidden rounded-lg" ref={mapContainer}>
         {/* Map Controls */}
         <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
           <div className="bg-white p-2 rounded-md shadow-md">
@@ -139,81 +392,9 @@ const MapView = () => {
           </Button>
         </div>
         
-        {/* Mock map with India outline */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <svg
-            width="600"
-            height="500"
-            viewBox="0 0 600 500"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-full h-full"
-          >
-            <path
-              d="M400,100 Q450,150 430,200 Q420,250 450,300 Q470,350 450,400 Q400,420 350,400 Q300,410 250,400 Q200,420 150,400 Q130,350 150,300 Q170,250 150,200 Q130,150 180,100 Q230,80 300,100 Q350,80 400,100 Z"
-              fill="#e2e8f0"
-              stroke="#64748b"
-              strokeWidth="2"
-            />
-          </svg>
-          
-          {/* Plot industrial locations */}
-          {industrialLandData.map((location, index) => {
-            const isSelected = selectedLocation && 
-              location.talukaName === selectedLocation.talukaName && 
-              location.state === selectedLocation.state;
-            
-            const markerPosition = getMarkerPosition(location, index);
-              
-            return (
-              <div
-                key={index}
-                className={`absolute w-4 h-4 rounded-full ${isSelected ? 'bg-purple-600 animate-pulse' : 'bg-blue-600'} transform -translate-x-1/2 -translate-y-1/2`}
-                style={{
-                  left: markerPosition.left,
-                  top: markerPosition.top,
-                  zIndex: 10,
-                  scale: isSelected ? '1.5' : '1',
-                  boxShadow: isSelected ? '0 0 10px rgba(147, 51, 234, 0.7)' : 'none'
-                }}
-              >
-                {isSelected && (
-                  <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded shadow text-sm whitespace-nowrap z-20 font-medium flex items-center">
-                    <MapPin className="h-3 w-3 text-purple-600 mr-1" />
-                    {location.talukaName}, {location.state}
-                  </div>
-                )}
-                <div className={`absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-white px-2 py-1 rounded shadow text-xs whitespace-nowrap ${isSelected ? 'hidden' : ''}`}>
-                  {location.talukaName}, {location.district}
-                </div>
-              </div>
-            );
-          })}
-          
-          {/* Show selected location with custom coordinates if available */}
-          {selectedLocation?.coordinates && (
-            <div
-              className="absolute w-5 h-5 rounded-full bg-purple-600 animate-pulse transform -translate-x-1/2 -translate-y-1/2 z-20"
-              style={{
-                left: getMarkerPosition(selectedLocation, 0).left,
-                top: getMarkerPosition(selectedLocation, 0).top,
-                boxShadow: '0 0 15px rgba(147, 51, 234, 0.9)'
-              }}
-            >
-              <div className="absolute -bottom-14 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded shadow text-sm whitespace-nowrap z-30 font-medium flex items-center">
-                <MapPin className="h-3 w-3 text-purple-600 mr-1" />
-                {selectedLocation.talukaName}, {selectedLocation.state}
-                <span className="ml-1 px-1 py-0.5 bg-green-100 text-green-800 rounded text-xs">
-                  AI Recommended
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-        
         {/* Selected location info panel */}
         {selectedLocation && (
-          <div className="absolute top-4 left-4 bg-white p-4 rounded-md shadow-md max-w-xs">
+          <div className="absolute top-4 left-4 bg-white p-4 rounded-md shadow-md max-w-xs z-10">
             <h3 className="font-medium text-lg border-b pb-2 mb-3 flex items-center">
               <MapPin className="h-4 w-4 text-purple-600 mr-2" />
               {selectedLocation.talukaName}, {selectedLocation.district || ''}
@@ -258,7 +439,7 @@ const MapView = () => {
         )}
         
         {/* Map Legend */}
-        <div className="absolute bottom-4 left-4 right-4 bg-white p-3 rounded-md shadow-md">
+        <div className="absolute bottom-4 left-4 right-4 bg-white p-3 rounded-md shadow-md z-10">
           <p className="text-sm font-medium mb-1">Map Legend</p>
           <div className="flex items-center space-x-4 text-xs">
             <div className="flex items-center">

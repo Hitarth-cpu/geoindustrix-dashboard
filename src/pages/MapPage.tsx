@@ -12,7 +12,7 @@ const MapPage = () => {
         <div className="flex flex-col gap-2 mb-6">
           <h1 className="text-3xl font-bold tracking-tight">Interactive Map</h1>
           <p className="text-muted-foreground">
-            Visualize industrial zones and location data
+            Visualize industrial zones and location data using MapLibre
           </p>
         </div>
         
