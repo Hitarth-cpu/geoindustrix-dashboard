@@ -6,10 +6,12 @@ import { useLocation } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import { MapPin, Layers, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 const MapView = () => {
   const [mapboxToken, setMapboxToken] = useState('');
-  const [showTokenInput, setShowTokenInput] = useState(true);
+  const [showTokenDialog, setShowTokenDialog] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [mapLayer, setMapLayer] = useState('standard'); // 'standard', 'satellite', 'terrain'
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -37,14 +39,38 @@ const MapView = () => {
     }
   }, [location.search, toast]);
 
-  const handleSubmitToken = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowTokenInput(false);
-    
-    toast({
-      title: "Mapbox token saved",
-      description: "Map is now being initialized",
-    });
+  const handleSubmitToken = () => {
+    if (mapboxToken.trim()) {
+      setShowTokenDialog(false);
+      
+      toast({
+        title: "Mapbox token saved",
+        description: "Map is now being initialized",
+      });
+    } else {
+      toast({
+        title: "Token Required",
+        description: "Please enter a valid Mapbox token",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to determine marker position based on coordinates or index
+  const getMarkerPosition = (location: any, index: number) => {
+    if (location?.coordinates?.lat && location?.coordinates?.lng) {
+      // Use real coordinates if available
+      return {
+        left: `${(location.coordinates.lng - 70) * 100}px`,
+        top: `${(location.coordinates.lat - 15) * 100}px`,
+      };
+    } else {
+      // Fallback to index-based positioning
+      return {
+        left: `${200 + (index * 50) % 300}px`,
+        top: `${150 + (index * 40) % 250}px`,
+      };
+    }
   };
 
   const getMarkerColor = (infraIndex: number) => {
@@ -55,34 +81,37 @@ const MapView = () => {
 
   return (
     <div className="h-[calc(100vh-5rem)] relative">
-      {showTokenInput ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
-          <Card className="w-[400px]">
-            <CardContent className="pt-6">
-              <h3 className="text-lg font-medium mb-4">Enter Mapbox Token</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Please enter your Mapbox public token to view the map. You can find this in your Mapbox account dashboard.
-              </p>
-              <form onSubmit={handleSubmitToken} className="space-y-4">
-                <input
-                  type="text"
-                  value={mapboxToken}
-                  onChange={(e) => setMapboxToken(e.target.value)}
-                  placeholder="pk.eyJ1Ijoi..."
-                  className="w-full p-2 border rounded-md"
-                  required
-                />
-                <button 
-                  type="submit"
-                  className="w-full py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                >
-                  Submit
-                </button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
+      <Dialog open={showTokenDialog} onOpenChange={setShowTokenDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter Mapbox Token</DialogTitle>
+            <DialogDescription>
+              Please enter your Mapbox public token to view the map. You can find this in your Mapbox account dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-4">
+            <Input
+              type="text"
+              value={mapboxToken}
+              onChange={(e) => setMapboxToken(e.target.value)}
+              placeholder="pk.eyJ1Ijoi..."
+              className="w-full"
+              required
+            />
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowTokenDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSubmitToken}>
+                Submit
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              This token will only be stored in your browser's memory. Get your token at <a href="https://mapbox.com" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">mapbox.com</a>
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="h-full w-full bg-slate-200 relative overflow-hidden rounded-lg">
         {/* Map Controls */}
@@ -133,14 +162,16 @@ const MapView = () => {
             const isSelected = selectedLocation && 
               location.talukaName === selectedLocation.talukaName && 
               location.state === selectedLocation.state;
+            
+            const markerPosition = getMarkerPosition(location, index);
               
             return (
               <div
                 key={index}
                 className={`absolute w-4 h-4 rounded-full ${isSelected ? 'bg-purple-600 animate-pulse' : 'bg-blue-600'} transform -translate-x-1/2 -translate-y-1/2`}
                 style={{
-                  left: `${200 + (index * 50) % 300}px`,
-                  top: `${150 + (index * 40) % 250}px`,
+                  left: markerPosition.left,
+                  top: markerPosition.top,
                   zIndex: 10,
                   scale: isSelected ? '1.5' : '1',
                   boxShadow: isSelected ? '0 0 10px rgba(147, 51, 234, 0.7)' : 'none'
@@ -164,8 +195,8 @@ const MapView = () => {
             <div
               className="absolute w-5 h-5 rounded-full bg-purple-600 animate-pulse transform -translate-x-1/2 -translate-y-1/2 z-20"
               style={{
-                left: `${selectedLocation.coordinates.lng * 10 - 600}px`,
-                top: `${selectedLocation.coordinates.lat * 10 - 150}px`,
+                left: getMarkerPosition(selectedLocation, 0).left,
+                top: getMarkerPosition(selectedLocation, 0).top,
                 boxShadow: '0 0 15px rgba(147, 51, 234, 0.9)'
               }}
             >
@@ -188,6 +219,9 @@ const MapView = () => {
               {selectedLocation.talukaName}, {selectedLocation.district || ''}
             </h3>
             <div className="space-y-2 text-sm">
+              {selectedLocation.address && (
+                <p><span className="font-medium">Address:</span> {selectedLocation.address}</p>
+              )}
               <p><span className="font-medium">State:</span> {selectedLocation.state}</p>
               <p><span className="font-medium">Land Price:</span> ₹{selectedLocation.landPrice}/sqm</p>
               <p><span className="font-medium">Labor Availability:</span> {selectedLocation.laborAvail}</p>
@@ -212,6 +246,12 @@ const MapView = () => {
                     </p>
                   )}
                 </div>
+              )}
+              
+              {selectedLocation.coordinates && (
+                <p className="text-xs mt-2">
+                  GPS: {selectedLocation.coordinates.lat.toFixed(4)}, {selectedLocation.coordinates.lng.toFixed(4)}
+                </p>
               )}
             </div>
           </div>
