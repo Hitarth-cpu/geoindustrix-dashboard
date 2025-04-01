@@ -1,19 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Card } from '@/components/ui/card';
-import { industrialLandData, getAllIndustryTypes } from '@/services/industryData';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
+import { industrialLandData } from '@/services/industryData';
+import { useLocation } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
-import { MapPin, Layers, SlidersHorizontal, Filter, Search } from 'lucide-react';
+import { MapPin, Layers, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -24,13 +17,8 @@ const MapView = () => {
   const [mapLayer, setMapLayer] = useState('standard'); // 'standard', 'satellite', 'terrain'
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [initializedMap, setInitializedMap] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredLocations, setFilteredLocations] = useState<any[]>([]);
-  const [selectedIndustry, setSelectedIndustry] = useState<string>('');
   const location = useLocation();
-  const navigate = useNavigate();
   const { toast } = useToast();
-  const industryTypes = getAllIndustryTypes();
 
   useEffect(() => {
     // Parse location data from URL query params
@@ -85,7 +73,7 @@ const MapView = () => {
         ]
       },
       center: [78.9629, 20.5937], // Center on India
-      zoom: 5
+      zoom: 4
     });
 
     // Add navigation controls
@@ -311,36 +299,11 @@ const MapView = () => {
       .setHTML(`
         <strong>${selectedLocation.talukaName}, ${selectedLocation.district || ''}</strong>
         <p>State: ${selectedLocation.state}</p>
-        <p>Score: ${selectedLocation.infraIndex || 'N/A'}/10</p>
+        <p>Score: ${selectedLocation.suitabilityScore || 'N/A'}/10</p>
       `)
       .addTo(map.current);
       
   }, [selectedLocation, initializedMap]);
-
-  // Filter locations based on search term and industry
-  useEffect(() => {
-    let results = [...industrialLandData];
-    
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      results = results.filter(
-        loc => 
-          loc.talukaName.toLowerCase().includes(search) || 
-          loc.district.toLowerCase().includes(search) || 
-          loc.state.toLowerCase().includes(search)
-      );
-    }
-    
-    if (selectedIndustry) {
-      results = results.filter(loc => 
-        loc.industrySuitability.some(ind => 
-          ind.toLowerCase() === selectedIndustry.toLowerCase()
-        )
-      );
-    }
-    
-    setFilteredLocations(results);
-  }, [searchTerm, selectedIndustry]);
 
   const addLocationMarkers = () => {
     if (!map.current) return;
@@ -351,7 +314,7 @@ const MapView = () => {
     // Add markers for all industrial locations
     industrialLandData.forEach(location => {
       // Skip if no coordinates
-      if (!location.coordinates) return;
+      if (!location.coordinates && !location.coordinates?.lat && !location.coordinates?.lng) return;
       
       // Create marker element
       const markerElement = document.createElement('div');
@@ -369,7 +332,10 @@ const MapView = () => {
       
       // Add marker to map
       const markerObj = new maplibregl.Marker(markerContainer)
-        .setLngLat([location.coordinates.lng, location.coordinates.lat])
+        .setLngLat([
+          location.coordinates?.lng || 78 + Math.random() * 5, 
+          location.coordinates?.lat || 20 + Math.random() * 5
+        ])
         .addTo(map.current!);
         
       // Add popup on hover
@@ -398,64 +364,9 @@ const MapView = () => {
     });
   };
 
-  const handleViewOnFilter = (location: any) => {
-    // Save current view and navigate to filter page with location
-    const encodedLocation = encodeURIComponent(JSON.stringify(location));
-    navigate(`/filter?location=${encodedLocation}`);
-  };
-
   return (
     <div className="h-[calc(100vh-5rem)] relative">
       <div className="h-full w-full bg-slate-200 relative overflow-hidden rounded-lg" ref={mapContainer}>
-        {/* Search and Filters */}
-        <div className="absolute top-4 left-4 z-10 bg-white p-3 rounded-md shadow-md w-72 max-w-xs">
-          <div className="flex mb-3 items-center space-x-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search locations..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Select
-              value={selectedIndustry}
-              onValueChange={setSelectedIndustry}
-            >
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="Industry" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All Industries</SelectItem>
-                {industryTypes.map((type, idx) => (
-                  <SelectItem key={idx} value={type}>{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {filteredLocations.length > 0 && (
-            <div className="max-h-48 overflow-y-auto">
-              {filteredLocations.slice(0, 6).map((loc, idx) => (
-                <div 
-                  key={idx} 
-                  className="p-2 hover:bg-gray-100 rounded cursor-pointer mb-1 border border-gray-100"
-                  onClick={() => setSelectedLocation(loc)}
-                >
-                  <div className="font-medium">{loc.talukaName}</div>
-                  <div className="text-sm text-muted-foreground">{loc.district}, {loc.state}</div>
-                </div>
-              ))}
-              {filteredLocations.length > 6 && (
-                <div className="text-xs text-center text-muted-foreground mt-1">
-                  + {filteredLocations.length - 6} more results
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
         {/* Map Controls */}
         <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
           <div className="bg-white p-2 rounded-md shadow-md">
@@ -483,37 +394,46 @@ const MapView = () => {
         
         {/* Selected location info panel */}
         {selectedLocation && (
-          <div className="absolute top-4 left-80 bg-white p-4 rounded-md shadow-md max-w-xs z-10">
+          <div className="absolute top-4 left-4 bg-white p-4 rounded-md shadow-md max-w-xs z-10">
             <h3 className="font-medium text-lg border-b pb-2 mb-3 flex items-center">
               <MapPin className="h-4 w-4 text-purple-600 mr-2" />
               {selectedLocation.talukaName}, {selectedLocation.district || ''}
             </h3>
             <div className="space-y-2 text-sm">
+              {selectedLocation.address && (
+                <p><span className="font-medium">Address:</span> {selectedLocation.address}</p>
+              )}
               <p><span className="font-medium">State:</span> {selectedLocation.state}</p>
-              <p><span className="font-medium">Population Density:</span> {selectedLocation.popDensity}/sqkm</p>
               <p><span className="font-medium">Land Price:</span> ₹{selectedLocation.landPrice}/sqm</p>
               <p><span className="font-medium">Labor Availability:</span> {selectedLocation.laborAvail}</p>
-              <p><span className="font-medium">Labor Cost:</span> ₹{selectedLocation.laborCost}/day</p>
               <p><span className="font-medium">Infrastructure:</span> {selectedLocation.infraIndex}/10</p>
-              <p><span className="font-medium">Industry Suitability:</span> {selectedLocation.industrySuitability.join(', ')}</p>
-              <p><span className="font-medium">Govt. Incentives:</span> {selectedLocation.govtIncentives}</p>
+              <p><span className="font-medium">Incentives:</span> {selectedLocation.govtIncentives}</p>
+              
+              {selectedLocation.suitabilityScore && (
+                <div className="mt-3">
+                  <p className="font-medium border-t pt-2">AI Analysis</p>
+                  <div className="flex items-center mt-1">
+                    <p className="text-sm mr-2">Suitability: {selectedLocation.suitabilityScore}/10</p>
+                    <div className="w-24 h-2 bg-gray-200 rounded-full">
+                      <div 
+                        className="h-2 bg-green-600 rounded-full" 
+                        style={{ width: `${(selectedLocation.suitabilityScore) * 10}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  {selectedLocation.reasonForRecommendation && (
+                    <p className="text-xs italic mt-1 text-gray-600">
+                      "{selectedLocation.reasonForRecommendation}"
+                    </p>
+                  )}
+                </div>
+              )}
               
               {selectedLocation.coordinates && (
                 <p className="text-xs mt-2">
                   GPS: {selectedLocation.coordinates.lat.toFixed(4)}, {selectedLocation.coordinates.lng.toFixed(4)}
                 </p>
               )}
-              
-              <div className="pt-3 mt-2 border-t">
-                <Button 
-                  size="sm" 
-                  className="w-full"
-                  onClick={() => handleViewOnFilter(selectedLocation)}
-                >
-                  <Filter className="h-4 w-4 mr-1" />
-                  View in Filters
-                </Button>
-              </div>
             </div>
           </div>
         )}
