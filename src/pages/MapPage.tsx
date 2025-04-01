@@ -10,9 +10,9 @@ const MapPage = () => {
       
       <main className="container py-6">
         <div className="flex flex-col gap-2 mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">Interactive Map</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Industrial Location Map</h1>
           <p className="text-muted-foreground">
-            Visualize industrial zones and location data using MapLibre
+            Explore industrial zones across India with detailed location data and filtering options
           </p>
         </div>
         
